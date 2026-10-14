@@ -1,0 +1,38 @@
+# Foundation model providers for patient message drafting (PAA_PROVIDERS_FILE).
+#
+# Gemini on Vertex AI is primary (GCP reference deployment); Gemini Flash is
+# the failover route. ${NAME} values are resolved from the environment at
+# start-up and loading fails if any is unset (agentic-core expand_env).
+# GCP_ACCESS_TOKEN comes from GKE Workload Identity via the token refresher
+# sidecar described in docs/operations/configuration.md.
+#
+# The model only ever receives CONFIDENTIAL, non-identifying facts (service,
+# visit type, language); patient identifiers never leave this service, so
+# max_classification stays at 2 (CONFIDENTIAL) and RESTRICTED requests are
+# refused by the router.
+providers:
+  - kind: gemini
+    access_token_env: GCP_ACCESS_TOKEN
+    base_url: https://${GCP_REGION}-aiplatform.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/publishers/google
+    timeout_s: 20
+    profile:
+      name: gemini-pro
+      model: gemini-2.5-pro
+      region: ${GCP_REGION}
+      max_classification: 2
+      input_cost_per_mtok: ${GEMINI_PRO_INPUT_USD_PER_MTOK}
+      output_cost_per_mtok: ${GEMINI_PRO_OUTPUT_USD_PER_MTOK}
+      tasks: [patient_messaging]
+
+  - kind: gemini
+    access_token_env: GCP_ACCESS_TOKEN
+    base_url: https://${GCP_REGION}-aiplatform.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/publishers/google
+    timeout_s: 10
+    profile:
+      name: gemini-flash
+      model: gemini-2.5-flash
+      region: ${GCP_REGION}
+      max_classification: 2
+      input_cost_per_mtok: ${GEMINI_FLASH_INPUT_USD_PER_MTOK}
+      output_cost_per_mtok: ${GEMINI_FLASH_OUTPUT_USD_PER_MTOK}
+      tasks: [patient_messaging]

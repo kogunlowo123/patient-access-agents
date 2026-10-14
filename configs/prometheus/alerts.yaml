@@ -1,0 +1,122 @@
+# PrometheusRule-compatible alert rules. Load with the Prometheus Operator
+# (wrap in a PrometheusRule) or a rule_files entry.
+# SLOs (docs/architecture/agent-specification.md):
+#   availability  99.9% of API requests succeed (non-5xx), 30-day window
+#   latency       p95 case reads < 300 ms; p95 referral processing < 5 s
+#   operations    no referral breaches its scheduling SLA unescalated
+groups:
+  - name: patient-access-agents.slo
+    rules:
+      - record: paa:request_errors:ratio_5m
+        expr: |
+          sum(rate(paa_http_request_duration_seconds_count{status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(paa_http_request_duration_seconds_count[5m])), 1e-9)
+
+      - alert: PatientAccessErrorBudgetBurnFast
+        expr: paa:request_errors:ratio_5m > (14.4 * 0.001)
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: Patient access API burning its error budget 14x faster than sustainable
+          runbook: docs/runbooks/incident-response.md#elevated-5xx
+
+      - alert: PatientAccessCaseReadLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(paa_http_request_duration_seconds_bucket{route="/v1/cases/{case_id}"}[5m])
+          )) > 0.3
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          summary: p95 case read above 300 ms
+          runbook: docs/runbooks/monitoring.md#latency
+
+      - alert: PatientAccessReferralProcessingSlow
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(paa_http_request_duration_seconds_bucket{route="/v1/referrals/process"}[15m])
+          )) > 5
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: p95 referral processing above 5 s (FHIR or clearinghouse latency)
+          runbook: docs/runbooks/monitoring.md#latency
+
+  - name: patient-access-agents.operations
+    rules:
+      - alert: PatientAccessSlaBreaches
+        expr: sum(increase(paa_escalations_total{reason="sla_breach"}[1h])) > 0
+        for: 0m
+        labels: {severity: ticket}
+        annotations:
+          summary: Referrals breached their scheduling SLA in the last hour
+          runbook: docs/runbooks/escalation-queues.md#sla-breach
+
+      - alert: PatientAccessQueueBacklog
+        expr: max by (queue) (paa_open_escalations) > 50
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: More than 50 open escalations in a human queue
+          runbook: docs/runbooks/escalation-queues.md#backlog
+
+      - alert: PatientAccessEligibilityUnavailable
+        expr: |
+          sum(rate(paa_eligibility_outcomes_total{outcome="unavailable"}[15m]))
+          /
+          clamp_min(sum(rate(paa_eligibility_outcomes_total[15m])), 1e-9) > 0.3
+        for: 15m
+        labels: {severity: page}
+        annotations:
+          summary: Over 30% of eligibility inquiries get no answer (clearinghouse or payer outage)
+          runbook: docs/runbooks/incident-response.md#clearinghouse-outage
+
+      - alert: PatientAccessReminderFailures
+        expr: |
+          sum(rate(paa_reminder_deliveries_total{outcome="failed"}[30m]))
+          /
+          clamp_min(sum(rate(paa_reminder_deliveries_total[30m])), 1e-9) > 0.2
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: Over 20% of reminder deliveries are failing
+          runbook: docs/runbooks/incident-response.md#messaging-outage
+
+      - alert: PatientAccessWorkerFailing
+        expr: increase(paa_worker_runs_total{outcome="failed"}[15m]) > 3
+        for: 0m
+        labels: {severity: page}
+        annotations:
+          summary: Background work cycles (retries, reminders, SLA checks) are failing
+          runbook: docs/runbooks/incident-response.md#worker-failures
+
+  - name: patient-access-agents.security
+    rules:
+      - alert: PatientAccessDenySpike
+        expr: |
+          sum(rate(paa_authorization_decisions_total{decision="deny"}[10m]))
+          /
+          clamp_min(sum(rate(paa_authorization_decisions_total[10m])), 1e-9) > 0.2
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: More than 20% of authorization decisions are denials (probing or policy regression)
+          runbook: docs/runbooks/incident-response.md#deny-spike
+
+      - alert: PatientAccessModelFallbackSpike
+        expr: |
+          sum(rate(paa_message_composer_total{reason=~"output_.*|invalid_.*"}[30m])) > 0.1
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: Model drafts are being rejected by output validation; templates in use
+          runbook: docs/runbooks/incident-response.md#model-output-rejections
+
+      - alert: PatientAccessNotReady
+        expr: sum(up{job="patient-access-agents"}) < 2
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: Fewer than two replicas are being scraped
+          runbook: docs/runbooks/incident-response.md#replicas-down

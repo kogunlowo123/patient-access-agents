@@ -1,0 +1,145 @@
+replicaCount: 3
+
+image:
+  repository: ghcr.io/kogunlowo123/patient-access-agents
+  tag: ""  # defaults to .Chart.AppVersion
+  digest: ""  # set to pin an immutable sha256 digest; takes precedence over tag
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: patient-access-agents
+  # Cloud workload identity bindings, e.g.
+  #   iam.gke.io/gcp-service-account (GKE Workload Identity, reference cloud)
+  #   eks.amazonaws.com/role-arn (AWS IRSA)
+  #   azure.workload.identity/client-id (Azure Workload ID)
+  annotations: {}
+
+podLabels: {}
+
+# Deployment-specific values marked REQUIRED have no default; the chart
+# refuses to render until they are set (helm install --values <env>.yaml).
+paa:
+  environment: production
+  publicUrl: ""  # REQUIRED: external HTTPS URL (A2A Agent Card)
+  logLevel: INFO
+  defaultTimezone: America/New_York
+  workerIntervalSeconds: 60
+  otlpEndpoint: ""  # optional OTLP gRPC endpoint
+
+fhir:
+  baseUrl: ""  # REQUIRED: FHIR R4 base URL
+  auth: none  # none | fabric (agent credential from agent-identity-fabric)
+
+oidc:
+  issuer: ""  # REQUIRED: OIDC issuer for patients and staff
+  audience: ""  # REQUIRED: audience of people's tokens
+  jwksUrl: ""  # REQUIRED: JWKS URL of the OIDC issuer
+  rolesClaim: roles
+  patientClaim: patient
+
+# Agent credentials: introspected by agent-identity-fabric when fabric.url is
+# set; otherwise verified locally against agents.* when set; otherwise refused.
+fabric:
+  url: ""
+  clientId: ""  # this service's SPIFFE ID (needed when fhir.auth=fabric)
+  tokenAudience: identity-fabric  # audience of the projected workload token
+agents:
+  issuer: ""
+  audience: ""
+  jwksUrl: ""
+
+# Real-time X12 270/271 eligibility. Leave url empty to route all eligibility
+# to the manual-verification queue.
+clearinghouse:
+  url: ""
+  senderId: ""
+  receiverId: ""
+  applicationSender: ""
+  applicationReceiver: ""
+  usage: P
+  providerName: ""
+  providerNpi: ""
+  providerTaxId: ""
+
+notifications:
+  webhookUrl: ""  # SMS/e-mail messaging service; empty = patient portal only
+
+# Patient message drafting with Gemini on Vertex AI (configs/providers.yaml).
+models:
+  enabled: false
+  tokenSource: gke-metadata
+  gcpRegion: ""
+  gcpProjectId: ""
+  geminiProInputUsdPerMtok: ""
+  geminiProOutputUsdPerMtok: ""
+  geminiFlashInputUsdPerMtok: ""
+  geminiFlashOutputUsdPerMtok: ""
+
+# Secrets are created by the platform secret operator (External Secrets,
+# Secrets Store CSI) from the cloud secret manager provisioned by Terraform.
+secrets:
+  # Secret holding key DATABASE_URL (postgresql+asyncpg://...).
+  database: patient-access-agents-database
+  # Secret holding audit-<kid>.pem, the Ed25519 audit signing key.
+  auditKey: patient-access-agents-audit-key
+  auditKeyFile: ""  # REQUIRED: file name of the audit key within secrets.auditKey
+  # Secret holding CLEARINGHOUSE_API_KEY (used when clearinghouse.url is set).
+  clearinghouse: patient-access-agents-clearinghouse
+  # Secret holding NOTIFICATION_SIGNING_KEY (used when notifications.webhookUrl is set).
+  notifications: patient-access-agents-notifications
+
+audit:
+  storageClassName: ""
+  size: 20Gi
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""  # required when ingress.enabled
+  tlsSecret: patient-access-agents-tls
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: "1"
+    memory: 768Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  minAvailable: 2
+
+networkPolicy:
+  enabled: true
+  # Namespaces whose pods may call the service (agents, portal back end).
+  allowedNamespaceLabels:
+    agent-platform/member: "true"
+  monitoringNamespaceLabels:
+    kubernetes.io/metadata.name: observability
+  ingressNamespaceLabels:
+    kubernetes.io/metadata.name: ingress-nginx
+  # TCP ports of external dependencies (FHIR, clearinghouse, fabric, messaging, Vertex AI).
+  egressPorts: [443]
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+nodeSelector: {}
+tolerations: []
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway

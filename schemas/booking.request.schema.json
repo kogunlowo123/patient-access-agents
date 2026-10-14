@@ -1,0 +1,17 @@
+{
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/booking.request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "proposal_id": {
+      "pattern": "^[A-Za-z0-9\\-]{1,64}$",
+      "title": "Proposal Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "proposal_id"
+  ],
+  "title": "BookingRequest",
+  "type": "object"
+}

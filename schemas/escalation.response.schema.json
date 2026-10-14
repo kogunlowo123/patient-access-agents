@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "EscalationPriority": {
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "critical"
+      ],
+      "title": "EscalationPriority",
+      "type": "string"
+    },
+    "EscalationReason": {
+      "enum": [
+        "eligibility_denied",
+        "eligibility_unavailable",
+        "manual_verification",
+        "prior_authorization",
+        "no_capacity",
+        "availability_conflict",
+        "unroutable_referral",
+        "sla_at_risk",
+        "sla_breach",
+        "reminder_failed",
+        "booking_approval"
+      ],
+      "title": "EscalationReason",
+      "type": "string"
+    },
+    "EscalationStatus": {
+      "enum": [
+        "open",
+        "claimed",
+        "resolved"
+      ],
+      "title": "EscalationStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/escalation.response.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "claimed_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Claimed By"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "details": {
+      "additionalProperties": true,
+      "title": "Details",
+      "type": "object"
+    },
+    "escalation_id": {
+      "title": "Escalation Id",
+      "type": "string"
+    },
+    "patient_id": {
+      "title": "Patient Id",
+      "type": "string"
+    },
+    "priority": {
+      "$ref": "#/$defs/EscalationPriority"
+    },
+    "queue": {
+      "title": "Queue",
+      "type": "string"
+    },
+    "reason": {
+      "$ref": "#/$defs/EscalationReason"
+    },
+    "resolution": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Resolution"
+    },
+    "resolved_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Resolved By"
+    },
+    "status": {
+      "$ref": "#/$defs/EscalationStatus"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "escalation_id",
+    "case_id",
+    "patient_id",
+    "reason",
+    "queue",
+    "priority",
+    "status",
+    "summary",
+    "details",
+    "claimed_by",
+    "resolved_by",
+    "resolution",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "EscalationView",
+  "type": "object"
+}

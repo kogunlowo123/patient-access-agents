@@ -1,0 +1,103 @@
+{
+  "$defs": {
+    "ReminderKind": {
+      "enum": [
+        "scheduling_outreach",
+        "appointment_reminder"
+      ],
+      "title": "ReminderKind",
+      "type": "string"
+    },
+    "ReminderStatus": {
+      "enum": [
+        "pending",
+        "sent",
+        "acknowledged",
+        "failed",
+        "cancelled"
+      ],
+      "title": "ReminderStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/reminder.response.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "acknowledged_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Acknowledged At"
+    },
+    "attempts": {
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "channel": {
+      "title": "Channel",
+      "type": "string"
+    },
+    "composer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Composer"
+    },
+    "due_at": {
+      "format": "date-time",
+      "title": "Due At",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ReminderKind"
+    },
+    "reminder_id": {
+      "title": "Reminder Id",
+      "type": "string"
+    },
+    "sent_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Sent At"
+    },
+    "status": {
+      "$ref": "#/$defs/ReminderStatus"
+    }
+  },
+  "required": [
+    "reminder_id",
+    "case_id",
+    "kind",
+    "channel",
+    "status",
+    "due_at",
+    "attempts",
+    "sent_at",
+    "acknowledged_at",
+    "composer"
+  ],
+  "title": "ReminderView",
+  "type": "object"
+}

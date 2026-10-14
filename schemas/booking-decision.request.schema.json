@@ -1,0 +1,23 @@
+{
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/booking-decision.request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "approve": {
+      "title": "Approve",
+      "type": "boolean"
+    },
+    "note": {
+      "maxLength": 1000,
+      "minLength": 3,
+      "title": "Note",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approve",
+    "note"
+  ],
+  "title": "BookingDecisionRequest",
+  "type": "object"
+}

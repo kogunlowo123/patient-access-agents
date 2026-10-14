@@ -1,0 +1,13 @@
+apiVersion: v2
+name: patient-access-agents
+description: Patient access agents - referral intake, X12 eligibility, scheduling, follow-up and escalation
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"
+home: https://github.com/kogunlowo123/patient-access-agents
+sources:
+  - https://github.com/kogunlowo123/patient-access-agents
+maintainers:
+  - name: kogunlowo123
+    url: https://github.com/kogunlowo123

@@ -1,0 +1,157 @@
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.serviceAccount.name }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: false
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector: {{- include "paa.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "paa.fullname" . }}-headless
+  labels: {{- include "paa.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector: {{- include "paa.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels: {{- include "paa.selectorLabels" . | nindent 6 }}
+{{- if .Values.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ include "paa.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "paa.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {{- toYaml .Values.networkPolicy.allowedNamespaceLabels | nindent 14 }}
+        - namespaceSelector:
+            matchLabels: {{- toYaml .Values.networkPolicy.ingressNamespaceLabels | nindent 14 }}
+        - namespaceSelector:
+            matchLabels: {{- toYaml .Values.networkPolicy.monitoringNamespaceLabels | nindent 14 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+  egress:
+    - ports:  # DNS
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - ports:  # PostgreSQL and OTLP
+        - {port: 5432, protocol: TCP}
+        - {port: 4317, protocol: TCP}
+    - ports:  # FHIR, clearinghouse, identity fabric, messaging, Vertex AI
+        {{- range .Values.networkPolicy.egressPorts }}
+        - {port: {{ . }}, protocol: TCP}
+        {{- end }}
+    {{- if and .Values.models.enabled (eq .Values.models.tokenSource "gke-metadata") }}
+    - to:  # GKE metadata server (Workload Identity tokens)
+        - ipBlock: {cidr: 169.254.169.254/32}
+      ports:
+        - {port: 80, protocol: TCP}
+    - to:
+        - ipBlock: {cidr: 169.254.169.252/32}
+      ports:
+        - {port: 988, protocol: TCP}
+    {{- end }}
+{{- end }}
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{- include "paa.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  tls:
+    - hosts: [{{ required "ingress.host is required" .Values.ingress.host | quote }}]
+      secretName: {{ .Values.ingress.tlsSecret }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "paa.fullname" . }}
+                port:
+                  name: http
+{{- end }}

@@ -1,0 +1,169 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --python ${{ matrix.python }}
+      - name: Lint and format
+        run: |
+          uv run ruff check src tests
+          uv run black --check src tests
+      - name: Type check
+        run: uv run mypy
+      - name: Static security analysis
+        run: uv run python -m bandit -q -r src -c pyproject.toml
+      - name: Published contracts are current
+        run: uv run python -m patient_access_agents.contracts --check
+      - name: Unit, security, chaos, performance and e2e tests (coverage gate 90%)
+        run: uv run pytest --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: matrix.python == '3.12'
+        with:
+          name: coverage
+          path: coverage.xml
+
+  integration-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_DB: paa
+          POSTGRES_USER: paa
+          POSTGRES_PASSWORD: ci-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U paa" --health-interval 5s --health-retries 10
+    env:
+      PAA_TEST_DATABASE_URL: postgresql+asyncpg://paa:ci-only@localhost:5432/paa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --frozen
+      - name: PostgreSQL repository tests
+        run: uv run pytest tests/integration -m integration --no-cov -ra
+      - name: Full workflow suite against PostgreSQL
+        run: uv run pytest tests/unit/test_workflow.py tests/chaos --no-cov -ra
+
+  deploy-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: Helm lint and render
+        run: |
+          helm lint deployments/helm/patient-access-agents \
+            -f deployments/helm/patient-access-agents/ci/test-values.yaml
+          helm template paa deployments/helm/patient-access-agents \
+            -f deployments/helm/patient-access-agents/ci/test-values.yaml > rendered.yaml
+          if helm template paa deployments/helm/patient-access-agents > /dev/null 2>&1; then
+            echo "chart rendered without required values"; exit 1
+          fi
+      - name: Kubernetes schema validation (kubeconform)
+        run: |
+          curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          ./kubeconform -strict -summary -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            rendered.yaml deployments/kubernetes/namespace.yaml deployments/kubernetes/external-secrets.yaml
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - name: Terraform fmt and validate (aws, azure, gcp)
+        run: |
+          terraform fmt -recursive -check deployments/terraform
+          for cloud in aws azure gcp; do
+            terraform -chdir=deployments/terraform/$cloud init -backend=false -input=false
+            terraform -chdir=deployments/terraform/$cloud validate
+          done
+      - name: IaC and Kubernetes misconfiguration scan (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: deployments
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t patient-access-agents:ci .
+      - name: Container smoke test (starts, reports healthy, serves agent interfaces)
+        run: |
+          docker run -d --name paa -p 8080:8080 \
+            -e PAA_ENVIRONMENT=ci -e PAA_DEV_EPHEMERAL_AUDIT_KEY=true \
+            -e PAA_PUBLIC_URL=https://access.ci.internal \
+            -e PAA_DATABASE_URL=sqlite+aiosqlite:////tmp/paa.db \
+            -e PAA_AUDIT_LOG_PATH=/tmp/audit.jsonl \
+            -e PAA_FHIR_BASE_URL=https://fhir.ci.internal/fhir \
+            -e PAA_OIDC_ISSUER=https://login.ci.internal \
+            -e PAA_OIDC_AUDIENCE=patient-access \
+            -e PAA_OIDC_JWKS_URL=https://login.ci.internal/jwks \
+            patient-access-agents:ci
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/readyz && break; sleep 1
+          done
+          curl -sf http://localhost:8080/readyz
+          curl -sf http://localhost:8080/.well-known/agent-card.json | grep -q '"process-referral"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/cases)" = "401"
+          curl -s -X POST http://localhost:8080/mcp \
+            -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep -q process_referral
+          docker inspect --format '{{.Config.User}}' patient-access-agents:ci | grep -q 10001
+          docker logs paa
+      - name: Image vulnerability scan (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: patient-access-agents:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Image SBOM (Syft)
+        uses: anchore/sbom-action@v0.24.3
+        with:
+          image: patient-access-agents:ci
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+      - name: SBOM vulnerability gate (Grype)
+        uses: anchore/scan-action@v7.4.2
+        with:
+          sbom: sbom.cdx.json
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+
+  semgrep:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:1.95.0
+    steps:
+      - uses: actions/checkout@v4
+      - run: semgrep scan --config p/python --config p/secrets --config p/dockerfile --error --metrics=off src Dockerfile

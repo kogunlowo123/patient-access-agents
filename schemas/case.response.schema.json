@@ -1,0 +1,824 @@
+{
+  "$defs": {
+    "AppointmentRef": {
+      "properties": {
+        "appointment_id": {
+          "title": "Appointment Id",
+          "type": "string"
+        },
+        "approved_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "booked_at": {
+          "format": "date-time",
+          "title": "Booked At",
+          "type": "string"
+        },
+        "booked_by": {
+          "title": "Booked By",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "location_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Location Id"
+        },
+        "location_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location Name"
+        },
+        "modality": {
+          "$ref": "#/$defs/Modality"
+        },
+        "practitioner_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Practitioner Ids",
+          "type": "array"
+        },
+        "slot_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Slot Ids",
+          "type": "array"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "appointment_id",
+        "slot_ids",
+        "start",
+        "end",
+        "practitioner_ids",
+        "location_id",
+        "modality",
+        "booked_by",
+        "booked_at"
+      ],
+      "title": "AppointmentRef",
+      "type": "object"
+    },
+    "AvailabilityWindow": {
+      "description": "A weekly window in the patient's local time when they can attend.",
+      "properties": {
+        "end": {
+          "format": "time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "time",
+          "title": "Start",
+          "type": "string"
+        },
+        "weekdays": {
+          "description": "ISO weekdays 1=Mon..7=Sun",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Weekdays",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "weekdays",
+        "start",
+        "end"
+      ],
+      "title": "AvailabilityWindow",
+      "type": "object"
+    },
+    "Benefit": {
+      "properties": {
+        "amount": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount"
+        },
+        "authorization_required": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authorization Required"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "coverage_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage Level"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "in_network": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In Network"
+        },
+        "insurance_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Insurance Type"
+        },
+        "messages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Messages",
+          "type": "array"
+        },
+        "percent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Percent"
+        },
+        "plan_description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Description"
+        },
+        "service_types": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Service Types",
+          "type": "array"
+        },
+        "time_period": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Period"
+        }
+      },
+      "required": [
+        "code",
+        "description"
+      ],
+      "title": "Benefit",
+      "type": "object"
+    },
+    "CaseStatus": {
+      "enum": [
+        "received",
+        "eligibility_pending",
+        "eligibility_verified",
+        "eligibility_denied",
+        "slots_proposed",
+        "no_capacity",
+        "booking_pending_approval",
+        "scheduled",
+        "closed"
+      ],
+      "title": "CaseStatus",
+      "type": "string"
+    },
+    "CaseTransition": {
+      "properties": {
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "from_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaseStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "to_status": {
+          "$ref": "#/$defs/CaseStatus"
+        }
+      },
+      "required": [
+        "at",
+        "from_status",
+        "to_status",
+        "actor",
+        "reason"
+      ],
+      "title": "CaseTransition",
+      "type": "object"
+    },
+    "EligibilityOutcome": {
+      "enum": [
+        "active",
+        "inactive",
+        "rejected",
+        "unavailable",
+        "manual_required"
+      ],
+      "title": "EligibilityOutcome",
+      "type": "string"
+    },
+    "EligibilityView": {
+      "properties": {
+        "benefits": {
+          "items": {
+            "$ref": "#/$defs/Benefit"
+          },
+          "title": "Benefits",
+          "type": "array"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "follow_up_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Follow Up Action"
+        },
+        "member_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Member Id"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "outcome": {
+          "$ref": "#/$defs/EligibilityOutcome"
+        },
+        "payer_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Payer Id"
+        },
+        "plan_begin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Plan Begin"
+        },
+        "plan_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Plan End"
+        },
+        "prior_authorization_required": {
+          "title": "Prior Authorization Required",
+          "type": "boolean"
+        },
+        "rejection_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rejection Code"
+        },
+        "rejection_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rejection Reason"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "outcome",
+        "checked_at",
+        "source",
+        "payer_id",
+        "member_id",
+        "prior_authorization_required",
+        "rejection_code",
+        "rejection_reason",
+        "follow_up_action",
+        "plan_begin",
+        "plan_end",
+        "benefits",
+        "note"
+      ],
+      "title": "EligibilityView",
+      "type": "object"
+    },
+    "Modality": {
+      "enum": [
+        "in_person",
+        "telehealth",
+        "home"
+      ],
+      "title": "Modality",
+      "type": "string"
+    },
+    "PendingBooking": {
+      "properties": {
+        "matched_rules": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Matched Rules",
+          "type": "array"
+        },
+        "proposal_id": {
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "requested_at": {
+          "format": "date-time",
+          "title": "Requested At",
+          "type": "string"
+        },
+        "requested_by": {
+          "title": "Requested By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposal_id",
+        "requested_by",
+        "requested_at",
+        "reason"
+      ],
+      "title": "PendingBooking",
+      "type": "object"
+    },
+    "Priority": {
+      "description": "FHIR R4 request-priority value set.",
+      "enum": [
+        "routine",
+        "urgent",
+        "asap",
+        "stat"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "SchedulingPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "availability": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AvailabilityWindow"
+          },
+          "maxItems": 21,
+          "title": "Availability",
+          "type": "array"
+        },
+        "excluded_locations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Excluded Locations",
+          "type": "array"
+        },
+        "language": {
+          "default": "en",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+          "title": "Language",
+          "type": "string"
+        },
+        "modalities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Modality"
+          },
+          "title": "Modalities",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "preferred_locations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Preferred Locations",
+          "type": "array"
+        },
+        "preferred_practitioners": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Preferred Practitioners",
+          "type": "array"
+        },
+        "reminder_channel": {
+          "default": "portal",
+          "pattern": "^(portal|sms|email)$",
+          "title": "Reminder Channel",
+          "type": "string"
+        },
+        "timezone": {
+          "default": "America/New_York",
+          "maxLength": 64,
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "title": "SchedulingPreferences",
+      "type": "object"
+    },
+    "SlotProposal": {
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "location_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Location Id"
+        },
+        "location_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location Name"
+        },
+        "modality": {
+          "$ref": "#/$defs/Modality"
+        },
+        "practitioner_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Practitioner Ids",
+          "type": "array"
+        },
+        "practitioner_names": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Practitioner Names",
+          "type": "array"
+        },
+        "proposal_id": {
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "schedule_id": {
+          "title": "Schedule Id",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "score_breakdown": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Score Breakdown",
+          "type": "object"
+        },
+        "slot_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Slot Ids",
+          "type": "array"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot_ids",
+        "schedule_id",
+        "start",
+        "end",
+        "practitioner_ids",
+        "location_id",
+        "modality",
+        "score",
+        "score_breakdown"
+      ],
+      "title": "SlotProposal",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/case.response.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "appointment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AppointmentRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "appointment_deadline": {
+      "format": "date-time",
+      "title": "Appointment Deadline",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "closed_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Closed Reason"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "eligibility": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EligibilityView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "eligibility_attempts": {
+      "title": "Eligibility Attempts",
+      "type": "integer"
+    },
+    "history": {
+      "items": {
+        "$ref": "#/$defs/CaseTransition"
+      },
+      "title": "History",
+      "type": "array"
+    },
+    "next_eligibility_attempt_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Eligibility Attempt At"
+    },
+    "patient_id": {
+      "title": "Patient Id",
+      "type": "string"
+    },
+    "pending_booking": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PendingBooking"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "preferences": {
+      "$ref": "#/$defs/SchedulingPreferences"
+    },
+    "priority": {
+      "$ref": "#/$defs/Priority"
+    },
+    "proposals": {
+      "items": {
+        "$ref": "#/$defs/SlotProposal"
+      },
+      "title": "Proposals",
+      "type": "array"
+    },
+    "service": {
+      "title": "Service",
+      "type": "string"
+    },
+    "service_request_id": {
+      "title": "Service Request Id",
+      "type": "string"
+    },
+    "sla_due_at": {
+      "format": "date-time",
+      "title": "Sla Due At",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/CaseStatus"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "case_id",
+    "service_request_id",
+    "patient_id",
+    "service",
+    "priority",
+    "status",
+    "sla_due_at",
+    "appointment_deadline",
+    "preferences",
+    "eligibility",
+    "eligibility_attempts",
+    "next_eligibility_attempt_at",
+    "proposals",
+    "pending_booking",
+    "appointment",
+    "history",
+    "closed_reason",
+    "version",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "CaseView",
+  "type": "object"
+}

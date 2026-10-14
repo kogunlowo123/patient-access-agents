@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "AvailabilityWindow": {
+      "description": "A weekly window in the patient's local time when they can attend.",
+      "properties": {
+        "end": {
+          "format": "time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "time",
+          "title": "Start",
+          "type": "string"
+        },
+        "weekdays": {
+          "description": "ISO weekdays 1=Mon..7=Sun",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Weekdays",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "weekdays",
+        "start",
+        "end"
+      ],
+      "title": "AvailabilityWindow",
+      "type": "object"
+    },
+    "Modality": {
+      "enum": [
+        "in_person",
+        "telehealth",
+        "home"
+      ],
+      "title": "Modality",
+      "type": "string"
+    }
+  },
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/scheduling-preferences.request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "availability": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AvailabilityWindow"
+      },
+      "maxItems": 21,
+      "title": "Availability",
+      "type": "array"
+    },
+    "excluded_locations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Excluded Locations",
+      "type": "array"
+    },
+    "language": {
+      "default": "en",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "title": "Language",
+      "type": "string"
+    },
+    "modalities": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Modality"
+      },
+      "title": "Modalities",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "preferred_locations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Preferred Locations",
+      "type": "array"
+    },
+    "preferred_practitioners": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Preferred Practitioners",
+      "type": "array"
+    },
+    "reminder_channel": {
+      "default": "portal",
+      "pattern": "^(portal|sms|email)$",
+      "title": "Reminder Channel",
+      "type": "string"
+    },
+    "timezone": {
+      "default": "America/New_York",
+      "maxLength": 64,
+      "title": "Timezone",
+      "type": "string"
+    }
+  },
+  "title": "SchedulingPreferences",
+  "type": "object"
+}

@@ -1,0 +1,36 @@
+{
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/manual-eligibility.request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "active": {
+      "title": "Active",
+      "type": "boolean"
+    },
+    "note": {
+      "maxLength": 1000,
+      "minLength": 5,
+      "title": "Note",
+      "type": "string"
+    },
+    "payer_reference": {
+      "description": "Payer call reference or portal confirmation",
+      "maxLength": 64,
+      "minLength": 3,
+      "title": "Payer Reference",
+      "type": "string"
+    },
+    "prior_authorization_required": {
+      "default": false,
+      "title": "Prior Authorization Required",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "active",
+    "note",
+    "payer_reference"
+  ],
+  "title": "ManualEligibilityRequest",
+  "type": "object"
+}

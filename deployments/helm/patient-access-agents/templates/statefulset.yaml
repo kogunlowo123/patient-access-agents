@@ -1,0 +1,148 @@
+{{- /*
+StatefulSet so each replica owns a persistent volume for its own signed
+audit chain (/var/lib/patient-access/audit/<pod>.jsonl). A log shipper
+copies the files to WORM object storage provisioned by Terraform. Case,
+reminder and escalation state lives in PostgreSQL; replicas share it and
+coordinate background work with row leases.
+*/ -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "paa.fullname" . }}-headless
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels: {{- include "paa.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "paa.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}{{ toYaml . | nindent 8 }}{{ end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range . }}
+        - {{- toYaml . | nindent 10 }}
+          labelSelector:
+            matchLabels: {{- include "paa.selectorLabels" $ | nindent 14 }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: patient-access
+          image: {{ include "paa.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: {{ include "paa.fullname" . }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PAA_AUDIT_LOG_PATH
+              value: /var/lib/patient-access/audit/$(POD_NAME).jsonl
+            - name: PAA_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database }}
+                  key: DATABASE_URL
+            {{- if .Values.clearinghouse.url }}
+            - name: PAA_CLEARINGHOUSE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.clearinghouse }}
+                  key: CLEARINGHOUSE_API_KEY
+            {{- end }}
+            {{- if .Values.notifications.webhookUrl }}
+            - name: PAA_NOTIFICATION_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.notifications }}
+                  key: NOTIFICATION_SIGNING_KEY
+            {{- end }}
+            - name: PAA_FORWARDED_ALLOW_IPS
+              value: "*"
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+          startupProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+            failureThreshold: 24
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: audit-key
+              mountPath: /etc/patient-access/audit-key
+              readOnly: true
+            - name: audit
+              mountPath: /var/lib/patient-access/audit
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.fabric.url }}
+            - name: agent-identity
+              mountPath: /var/run/secrets/agent-identity
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: audit-key
+          secret:
+            secretName: {{ .Values.secrets.auditKey }}
+            defaultMode: 0400
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- if .Values.fabric.url }}
+        - name: agent-identity
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: {{ .Values.fabric.tokenAudience }}
+                  expirationSeconds: 3600
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: audit
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.audit.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.audit.size }}

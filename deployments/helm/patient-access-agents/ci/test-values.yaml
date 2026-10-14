@@ -1,0 +1,43 @@
+# Values used by CI to render and schema-validate the chart (helm lint,
+# helm template | kubeconform). They describe a complete, valid deployment
+# with every optional integration switched on.
+paa:
+  publicUrl: https://access.ci.internal
+fhir:
+  baseUrl: https://fhir.ci.internal/fhir/R4
+  auth: fabric
+oidc:
+  issuer: https://login.ci.internal/patient-access
+  audience: patient-access
+  jwksUrl: https://login.ci.internal/patient-access/jwks
+fabric:
+  url: https://identity.ci.internal
+  clientId: spiffe://agents.ci.internal/agent/access/patient-access-agents
+clearinghouse:
+  url: https://clearinghouse.ci.internal/x12/270
+  senderId: SUBMITTERCI
+  receiverId: CLEARINGCI
+  applicationSender: SUBCI
+  applicationReceiver: CHCI
+  usage: T
+  providerName: CI Specialty Clinic
+  providerNpi: "1234567893"
+  providerTaxId: "123456789"
+notifications:
+  webhookUrl: https://messaging.ci.internal/send
+models:
+  enabled: true
+  gcpRegion: us-central1
+  gcpProjectId: patient-access-ci
+  geminiProInputUsdPerMtok: "1.25"
+  geminiProOutputUsdPerMtok: "10"
+  geminiFlashInputUsdPerMtok: "0.30"
+  geminiFlashOutputUsdPerMtok: "2.50"
+secrets:
+  auditKeyFile: audit-2026-10.pem
+ingress:
+  enabled: true
+  className: nginx
+  host: access.ci.internal
+serviceMonitor:
+  enabled: true

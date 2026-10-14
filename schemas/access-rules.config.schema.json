@@ -1,0 +1,398 @@
+{
+  "$defs": {
+    "Backoff": {
+      "additionalProperties": false,
+      "properties": {
+        "base_minutes": {
+          "exclusiveMinimum": 0,
+          "title": "Base Minutes",
+          "type": "number"
+        },
+        "max_attempts": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "max_minutes": {
+          "exclusiveMinimum": 0,
+          "title": "Max Minutes",
+          "type": "number"
+        }
+      },
+      "required": [
+        "max_attempts",
+        "base_minutes",
+        "max_minutes"
+      ],
+      "title": "Backoff",
+      "type": "object"
+    },
+    "EligibilityRules": {
+      "additionalProperties": false,
+      "properties": {
+        "pending_max_hours": {
+          "exclusiveMinimum": 0,
+          "title": "Pending Max Hours",
+          "type": "number"
+        },
+        "retry": {
+          "$ref": "#/$defs/Backoff"
+        }
+      },
+      "required": [
+        "retry",
+        "pending_max_hours"
+      ],
+      "title": "EligibilityRules",
+      "type": "object"
+    },
+    "EscalationPriority": {
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "critical"
+      ],
+      "title": "EscalationPriority",
+      "type": "string"
+    },
+    "EscalationReason": {
+      "enum": [
+        "eligibility_denied",
+        "eligibility_unavailable",
+        "manual_verification",
+        "prior_authorization",
+        "no_capacity",
+        "availability_conflict",
+        "unroutable_referral",
+        "sla_at_risk",
+        "sla_breach",
+        "reminder_failed",
+        "booking_approval"
+      ],
+      "title": "EscalationReason",
+      "type": "string"
+    },
+    "Modality": {
+      "enum": [
+        "in_person",
+        "telehealth",
+        "home"
+      ],
+      "title": "Modality",
+      "type": "string"
+    },
+    "Priority": {
+      "description": "FHIR R4 request-priority value set.",
+      "enum": [
+        "routine",
+        "urgent",
+        "asap",
+        "stat"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "QuietHours": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "format": "time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "QuietHours",
+      "type": "object"
+    },
+    "ReminderRules": {
+      "additionalProperties": false,
+      "properties": {
+        "appointment_offsets_hours": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Appointment Offsets Hours",
+          "type": "array"
+        },
+        "min_notice_hours": {
+          "minimum": 0,
+          "title": "Min Notice Hours",
+          "type": "number"
+        },
+        "outreach_delay_minutes": {
+          "minimum": 0,
+          "title": "Outreach Delay Minutes",
+          "type": "number"
+        },
+        "quiet_hours": {
+          "$ref": "#/$defs/QuietHours"
+        },
+        "retry": {
+          "$ref": "#/$defs/Backoff"
+        }
+      },
+      "required": [
+        "appointment_offsets_hours",
+        "min_notice_hours",
+        "retry",
+        "quiet_hours",
+        "outreach_delay_minutes"
+      ],
+      "title": "ReminderRules",
+      "type": "object"
+    },
+    "ServiceProfile": {
+      "additionalProperties": false,
+      "description": "A bookable service a referral can be routed to.",
+      "properties": {
+        "codes": {
+          "description": "system|code tokens that route here",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Codes",
+          "type": "array"
+        },
+        "display": {
+          "title": "Display",
+          "type": "string"
+        },
+        "duration_minutes": {
+          "maximum": 480,
+          "minimum": 5,
+          "title": "Duration Minutes",
+          "type": "integer"
+        },
+        "min_lead_hours": {
+          "minimum": 0,
+          "title": "Min Lead Hours",
+          "type": "number"
+        },
+        "modalities": {
+          "description": "In order of preference",
+          "items": {
+            "$ref": "#/$defs/Modality"
+          },
+          "minItems": 1,
+          "title": "Modalities",
+          "type": "array"
+        },
+        "name": {
+          "pattern": "^[a-z0-9][a-z0-9\\-]{1,62}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "preparation": {
+          "default": "",
+          "title": "Preparation",
+          "type": "string"
+        },
+        "slot_specialty": {
+          "description": "Slot search token: system|code",
+          "title": "Slot Specialty",
+          "type": "string"
+        },
+        "x12_service_types": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 99,
+          "minItems": 1,
+          "title": "X12 Service Types",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "display",
+        "codes",
+        "slot_specialty",
+        "x12_service_types",
+        "duration_minutes",
+        "min_lead_hours",
+        "modalities"
+      ],
+      "title": "ServiceProfile",
+      "type": "object"
+    },
+    "SlaRule": {
+      "additionalProperties": false,
+      "properties": {
+        "appointment_within_days": {
+          "description": "Latest acceptable visit date",
+          "exclusiveMinimum": 0,
+          "title": "Appointment Within Days",
+          "type": "number"
+        },
+        "escalation_priority": {
+          "$ref": "#/$defs/EscalationPriority",
+          "default": "normal"
+        },
+        "schedule_within_hours": {
+          "description": "Referral receipt to booked",
+          "exclusiveMinimum": 0,
+          "title": "Schedule Within Hours",
+          "type": "number"
+        }
+      },
+      "required": [
+        "schedule_within_hours",
+        "appointment_within_days"
+      ],
+      "title": "SlaRule",
+      "type": "object"
+    },
+    "SolverRules": {
+      "additionalProperties": false,
+      "properties": {
+        "max_options": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Options",
+          "type": "integer"
+        },
+        "max_per_practitioner_day": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Per Practitioner Day",
+          "type": "integer"
+        },
+        "search_horizon_days": {
+          "exclusiveMinimum": 0,
+          "maximum": 365,
+          "title": "Search Horizon Days",
+          "type": "number"
+        },
+        "weights": {
+          "$ref": "#/$defs/SolverWeights"
+        }
+      },
+      "required": [
+        "max_options",
+        "max_per_practitioner_day",
+        "search_horizon_days",
+        "weights"
+      ],
+      "title": "SolverRules",
+      "type": "object"
+    },
+    "SolverWeights": {
+      "additionalProperties": false,
+      "properties": {
+        "continuity": {
+          "minimum": 0,
+          "title": "Continuity",
+          "type": "number"
+        },
+        "earliness": {
+          "minimum": 0,
+          "title": "Earliness",
+          "type": "number"
+        },
+        "location": {
+          "minimum": 0,
+          "title": "Location",
+          "type": "number"
+        },
+        "modality": {
+          "minimum": 0,
+          "title": "Modality",
+          "type": "number"
+        }
+      },
+      "required": [
+        "earliness",
+        "continuity",
+        "location",
+        "modality"
+      ],
+      "title": "SolverWeights",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/access-rules.config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "eligibility": {
+      "$ref": "#/$defs/EligibilityRules"
+    },
+    "escalation_queues": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/EscalationReason"
+      },
+      "title": "Escalation Queues",
+      "type": "object"
+    },
+    "queue_roles": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Queue Roles",
+      "type": "object"
+    },
+    "reminders": {
+      "$ref": "#/$defs/ReminderRules"
+    },
+    "services": {
+      "items": {
+        "$ref": "#/$defs/ServiceProfile"
+      },
+      "minItems": 1,
+      "title": "Services",
+      "type": "array"
+    },
+    "sla": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SlaRule"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/Priority"
+      },
+      "title": "Sla",
+      "type": "object"
+    },
+    "sla_at_risk_fraction": {
+      "exclusiveMaximum": 1,
+      "exclusiveMinimum": 0,
+      "title": "Sla At Risk Fraction",
+      "type": "number"
+    },
+    "solver": {
+      "$ref": "#/$defs/SolverRules"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "sla",
+    "sla_at_risk_fraction",
+    "eligibility",
+    "reminders",
+    "solver",
+    "escalation_queues",
+    "queue_roles",
+    "services"
+  ],
+  "title": "AccessRules",
+  "type": "object"
+}

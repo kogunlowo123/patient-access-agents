@@ -1,0 +1,18 @@
+{
+  "$id": "https://github.com/kogunlowo123/patient-access-agents/schemas/intake.request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "service_request_id": {
+      "description": "FHIR ServiceRequest logical id",
+      "pattern": "^[A-Za-z0-9\\-.]{1,64}$",
+      "title": "Service Request Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "service_request_id"
+  ],
+  "title": "IntakeRequest",
+  "type": "object"
+}

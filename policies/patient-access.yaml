@@ -1,0 +1,180 @@
+# Authorization policy for patient access (agentic-core PolicyEngine).
+# Combining: deny overrides, then require_approval, then allow; default deny.
+#
+# subject: id, kind (patient | staff | agent | service), roles, patient_id
+#          (patients only), scopes, action_in_scope (agent scope grants the
+#          action; "case:*" style wildcards allowed), delegated
+# resource: type (access_case | escalation | reminder | message), id,
+#           classification (always 3 = RESTRICTED: PHI), patient_id, status,
+#           prior_auth_pending, queue
+# environment.purpose_of_use: HPAYMT for eligibility, TREAT otherwise
+name: patient-access
+version: "2026.10.0"
+rules:
+  # ------------------------------------------------------------------ denials
+  - id: deny-agents-human-only-actions
+    description: Closing cases, overriding eligibility, approving bookings and working the human queue are never delegated to agents.
+    effect: deny
+    actions:
+      - "case:close"
+      - "eligibility:override"
+      - "appointment:approve"
+      - "escalation:claim"
+      - "escalation:resolve"
+      - "reminder:acknowledge"
+      - "message:read"
+    conditions:
+      - {attribute: subject.kind, operator: in, value: [agent, service]}
+
+  - id: deny-changes-to-closed-cases
+    description: A closed case is a record, not a work item.
+    effect: deny
+    actions:
+      - "case:route"
+      - "case:preferences"
+      - "eligibility:*"
+      - "slots:search"
+      - "appointment:*"
+    resource_types: [access_case]
+    conditions:
+      - {attribute: resource.status, operator: eq, value: closed}
+
+  # ---------------------------------------------------------------- approvals
+  - id: approve-agent-booking
+    description: An agent may propose a booking; a person (the patient or a scheduler) confirms it.
+    effect: require_approval
+    actions: ["appointment:book"]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: agent}
+
+  - id: approve-booking-pending-prior-authorization
+    description: The payer requires prior authorization; an eligibility specialist confirms before booking.
+    effect: require_approval
+    actions: ["appointment:book"]
+    resource_types: [access_case]
+    conditions:
+      - {attribute: resource.prior_auth_pending, operator: eq, value: true}
+
+  # ----------------------------------------------------------------- patients
+  - id: allow-patient-own-records
+    description: Patients act only on records whose patient_id matches their own patient context.
+    effect: allow
+    actions:
+      - "case:read"
+      - "case:preferences"
+      - "slots:search"
+      - "appointment:book"
+      - "reminder:acknowledge"
+      - "message:read"
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: patient}
+      - {attribute: resource.patient_id, operator: eq_attr, value: subject.patient_id}
+
+  # -------------------------------------------------------------------- staff
+  - id: allow-staff-read
+    description: Every access-centre role may read cases and the escalation queue.
+    effect: allow
+    actions: ["case:read", "escalation:read"]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - attribute: subject.roles
+        operator: contains_any
+        value: [access-scheduler, eligibility-specialist, care-navigator, access-supervisor, access-auditor]
+
+  - id: allow-scheduling-staff
+    description: Schedulers and supervisors take referrals, run real-time eligibility, search, book and approve agent bookings.
+    effect: allow
+    actions:
+      - "case:create"
+      - "case:route"
+      - "case:preferences"
+      - "eligibility:verify"
+      - "slots:search"
+      - "appointment:book"
+      - "appointment:approve"
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: subject.roles, operator: contains_any, value: [access-scheduler, access-supervisor]}
+
+  - id: allow-care-navigators
+    description: Care navigators take referrals and work with patients on availability.
+    effect: allow
+    actions: ["case:create", "case:route", "case:preferences", "eligibility:verify", "slots:search"]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: subject.roles, operator: contains_any, value: [care-navigator]}
+
+  - id: allow-eligibility-staff
+    description: Eligibility specialists verify coverage, record manual verification and clear prior-authorization holds.
+    effect: allow
+    actions: ["eligibility:verify", "eligibility:override", "appointment:approve"]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: subject.roles, operator: contains_any, value: [eligibility-specialist, access-supervisor]}
+
+  - id: allow-supervisor-close
+    description: Only supervisors close cases.
+    effect: allow
+    actions: ["case:close"]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: subject.roles, operator: contains, value: access-supervisor}
+
+  - id: allow-eligibility-queue
+    effect: allow
+    actions: ["escalation:claim", "escalation:resolve"]
+    resource_types: [escalation]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: resource.queue, operator: eq, value: eligibility}
+      - {attribute: subject.roles, operator: contains, value: eligibility-specialist}
+
+  - id: allow-scheduling-queue
+    effect: allow
+    actions: ["escalation:claim", "escalation:resolve"]
+    resource_types: [escalation]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: resource.queue, operator: eq, value: scheduling}
+      - {attribute: subject.roles, operator: contains, value: access-scheduler}
+
+  - id: allow-care-navigation-queue
+    effect: allow
+    actions: ["escalation:claim", "escalation:resolve"]
+    resource_types: [escalation]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: resource.queue, operator: eq, value: care-navigation}
+      - {attribute: subject.roles, operator: contains, value: care-navigator}
+
+  - id: allow-supervisor-any-queue
+    effect: allow
+    actions: ["escalation:claim", "escalation:resolve"]
+    resource_types: [escalation]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: staff}
+      - {attribute: subject.roles, operator: contains, value: access-supervisor}
+
+  # ------------------------------------------------------------------- agents
+  - id: allow-agent-scoped-actions
+    description: Agents act within the scopes on their credential.
+    effect: allow
+    actions:
+      - "case:read"
+      - "case:create"
+      - "case:preferences"
+      - "eligibility:verify"
+      - "slots:search"
+      - "appointment:book"
+      - "escalation:read"
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: agent}
+      - {attribute: subject.action_in_scope, operator: eq, value: true}
+
+  # --------------------------------------------- this service's own workers
+  - id: allow-service-workflow
+    description: Background workers retry eligibility and evaluate SLAs.
+    effect: allow
+    actions: ["case:read", "eligibility:verify", "slots:search", "escalation:read"]
+    conditions:
+      - {attribute: subject.kind, operator: eq, value: service}

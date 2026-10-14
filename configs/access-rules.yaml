@@ -1,0 +1,119 @@
+# Patient access operating rules (loaded at start-up; PAA_RULES_FILE).
+#
+# Owned by patient-access operations; changes go through pull request review
+# (CODEOWNERS) like authorization policy. The version is recorded with every
+# case so an auditor can tell which rules governed a decision.
+version: "2026.10.0"
+
+# Referral-to-booked SLA and the latest acceptable appointment date, by FHIR
+# ServiceRequest.priority. These are service-level targets set by the access
+# centre, not clinical guidance.
+sla:
+  stat: {schedule_within_hours: 4, appointment_within_days: 2, escalation_priority: critical}
+  asap: {schedule_within_hours: 24, appointment_within_days: 7, escalation_priority: high}
+  urgent: {schedule_within_hours: 72, appointment_within_days: 14, escalation_priority: high}
+  routine: {schedule_within_hours: 168, appointment_within_days: 60, escalation_priority: normal}
+
+# Raise an at-risk escalation once this share of the scheduling SLA has elapsed.
+sla_at_risk_fraction: 0.75
+
+eligibility:
+  # Retries apply only to "unable to respond" outcomes (AAA 42/80, timeouts).
+  retry: {max_attempts: 5, base_minutes: 15, max_minutes: 240}
+  pending_max_hours: 24
+
+reminders:
+  appointment_offsets_hours: [72, 24]
+  min_notice_hours: 2
+  retry: {max_attempts: 4, base_minutes: 10, max_minutes: 180}
+  quiet_hours: {start: "21:00", end: "08:00"}
+  outreach_delay_minutes: 0
+
+solver:
+  max_options: 5
+  max_per_practitioner_day: 2
+  search_horizon_days: 90
+  weights: {earliness: 0.5, continuity: 0.25, location: 0.15, modality: 0.1}
+
+escalation_queues:
+  eligibility_denied: eligibility
+  eligibility_unavailable: eligibility
+  manual_verification: eligibility
+  prior_authorization: eligibility
+  no_capacity: scheduling
+  availability_conflict: care-navigation
+  unroutable_referral: care-navigation
+  sla_at_risk: scheduling
+  sla_breach: supervisor
+  reminder_failed: care-navigation
+  booking_approval: scheduling
+
+queue_roles:
+  eligibility: eligibility-specialist
+  scheduling: access-scheduler
+  care-navigation: care-navigator
+  supervisor: access-supervisor
+
+# Referral routing. A ServiceRequest routes to the first service whose codes
+# intersect its code, performerType or category codings. Slots are searched by
+# the Slot "specialty" token (HL7 practice setting value set, SNOMED CT).
+# X12 service type codes are sent in the 270 EQ segment.
+services:
+  - name: cardiology-consult
+    display: cardiology consultation
+    codes:
+      - "http://snomed.info/sct|183519002"
+      - "http://snomed.info/sct|394579002"
+    slot_specialty: "http://snomed.info/sct|394579002"
+    x12_service_types: ["3", "98"]
+    duration_minutes: 40
+    min_lead_hours: 24
+    modalities: [in_person, telehealth]
+    preparation: Bring a list of current medications.
+
+  - name: dermatology-consult
+    display: dermatology consultation
+    codes: ["http://snomed.info/sct|394582007"]
+    slot_specialty: "http://snomed.info/sct|394582007"
+    x12_service_types: ["3", "98"]
+    duration_minutes: 20
+    min_lead_hours: 24
+    modalities: [in_person, telehealth]
+
+  - name: endocrinology-consult
+    display: endocrinology consultation
+    codes: ["http://snomed.info/sct|394583002"]
+    slot_specialty: "http://snomed.info/sct|394583002"
+    x12_service_types: ["3", "98"]
+    duration_minutes: 40
+    min_lead_hours: 48
+    modalities: [in_person, telehealth]
+    preparation: Bring your glucose log if you keep one.
+
+  - name: nephrology-consult
+    display: nephrology consultation
+    codes: ["http://snomed.info/sct|394589003"]
+    slot_specialty: "http://snomed.info/sct|394589003"
+    x12_service_types: ["3", "98"]
+    duration_minutes: 40
+    min_lead_hours: 48
+    modalities: [in_person]
+
+  - name: behavioral-health-intake
+    display: behavioral health intake
+    codes: ["http://snomed.info/sct|394587001"]
+    slot_specialty: "http://snomed.info/sct|394587001"
+    x12_service_types: ["MH", "A4"]
+    duration_minutes: 60
+    min_lead_hours: 24
+    modalities: [telehealth, in_person]
+
+  - name: orthopedics-consult
+    display: orthopedic consultation
+    codes: ["http://snomed.info/sct|394801008"]
+    slot_specialty: "http://snomed.info/sct|394801008"
+    x12_service_types: ["3", "98"]
+    duration_minutes: 30
+    min_lead_hours: 24
+    modalities: [in_person]
+    preparation: Bring any recent imaging reports.

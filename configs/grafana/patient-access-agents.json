@@ -1,0 +1,81 @@
+{
+  "title": "Patient Access Agents",
+  "uid": "patient-access-agents",
+  "schemaVersion": 39,
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Request success (5m)",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 3}},
+      "targets": [{"expr": "1 - paa:request_errors:ratio_5m"}]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "Case transitions by status",
+      "gridPos": {"x": 6, "y": 0, "w": 9, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (to_status) (rate(paa_case_transitions_total[15m]))", "legendFormat": "{{to_status}}"}]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Eligibility outcomes",
+      "gridPos": {"x": 15, "y": 0, "w": 9, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (outcome) (rate(paa_eligibility_outcomes_total[15m]))", "legendFormat": "{{outcome}}"}]
+    },
+    {
+      "id": 4, "type": "bargauge", "title": "Open escalations by queue",
+      "gridPos": {"x": 0, "y": 4, "w": 6, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "max by (queue) (paa_open_escalations)", "legendFormat": "{{queue}}"}]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Escalations raised by reason",
+      "gridPos": {"x": 6, "y": 8, "w": 9, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (reason) (increase(paa_escalations_total[1h]))", "legendFormat": "{{reason}}"}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Bookings by outcome",
+      "gridPos": {"x": 15, "y": 8, "w": 9, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (outcome) (increase(paa_bookings_total[1h]))", "legendFormat": "{{outcome}}"}]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Reminder deliveries",
+      "gridPos": {"x": 0, "y": 16, "w": 8, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (channel, outcome) (rate(paa_reminder_deliveries_total[15m]))", "legendFormat": "{{channel}} {{outcome}}"}]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Message composer (model vs template)",
+      "gridPos": {"x": 8, "y": 16, "w": 8, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (composer, reason) (rate(paa_message_composer_total[30m]))", "legendFormat": "{{composer}} {{reason}}"}]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "p95 latency by route",
+      "gridPos": {"x": 16, "y": 16, "w": 8, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, route) (rate(paa_http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{route}}"}]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Authorization decisions",
+      "gridPos": {"x": 0, "y": 24, "w": 12, "h": 7},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (decision) (rate(paa_authorization_decisions_total[5m]))", "legendFormat": "{{decision}}"}]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "MCP and A2A calls",
+      "gridPos": {"x": 12, "y": 24, "w": 12, "h": 7},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [{"expr": "sum by (protocol, operation, outcome) (rate(paa_agent_protocol_calls_total[5m]))", "legendFormat": "{{protocol}} {{operation}} {{outcome}}"}]
+    }
+  ]
+}

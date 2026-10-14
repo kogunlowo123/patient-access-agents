@@ -1,0 +1,64 @@
+{{- $p := .Values.paa -}}
+{{- $ch := .Values.clearinghouse -}}
+{{- $m := .Values.models -}}
+{{- if and (eq .Values.fhir.auth "fabric") (not (and .Values.fabric.url .Values.fabric.clientId)) }}
+{{- fail "fhir.auth=fabric needs fabric.url and fabric.clientId" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "paa.fullname" . }}
+  labels: {{- include "paa.labels" . | nindent 4 }}
+data:
+  PAA_ENVIRONMENT: {{ $p.environment | quote }}
+  PAA_PUBLIC_URL: {{ required "paa.publicUrl is required" $p.publicUrl | quote }}
+  PAA_LOG_LEVEL: {{ $p.logLevel | quote }}
+  PAA_DEFAULT_TIMEZONE: {{ $p.defaultTimezone | quote }}
+  PAA_WORKER_INTERVAL_S: {{ $p.workerIntervalSeconds | quote }}
+  PAA_AUDIT_KEY_FILE: {{ printf "/etc/patient-access/audit-key/%s" (required "secrets.auditKeyFile is required" .Values.secrets.auditKeyFile) | quote }}
+  PAA_FHIR_BASE_URL: {{ required "fhir.baseUrl is required" .Values.fhir.baseUrl | quote }}
+  PAA_FHIR_AUTH: {{ .Values.fhir.auth | quote }}
+  PAA_OIDC_ISSUER: {{ required "oidc.issuer is required" .Values.oidc.issuer | quote }}
+  PAA_OIDC_AUDIENCE: {{ required "oidc.audience is required" .Values.oidc.audience | quote }}
+  PAA_OIDC_JWKS_URL: {{ required "oidc.jwksUrl is required" .Values.oidc.jwksUrl | quote }}
+  PAA_ROLES_CLAIM: {{ .Values.oidc.rolesClaim | quote }}
+  PAA_PATIENT_CLAIM: {{ .Values.oidc.patientClaim | quote }}
+  {{- with .Values.fabric.url }}
+  PAA_FABRIC_URL: {{ . | quote }}
+  PAA_WORKLOAD_TOKEN_FILE: /var/run/secrets/agent-identity/token
+  {{- end }}
+  {{- with .Values.fabric.clientId }}
+  PAA_FABRIC_CLIENT_ID: {{ . | quote }}
+  {{- end }}
+  {{- if .Values.agents.issuer }}
+  PAA_AGENT_ISSUER: {{ .Values.agents.issuer | quote }}
+  PAA_AGENT_AUDIENCE: {{ required "agents.audience is required with agents.issuer" .Values.agents.audience | quote }}
+  PAA_AGENT_JWKS_URL: {{ required "agents.jwksUrl is required with agents.issuer" .Values.agents.jwksUrl | quote }}
+  {{- end }}
+  {{- if $ch.url }}
+  PAA_CLEARINGHOUSE_URL: {{ $ch.url | quote }}
+  PAA_X12_SENDER_ID: {{ required "clearinghouse.senderId is required" $ch.senderId | quote }}
+  PAA_X12_RECEIVER_ID: {{ required "clearinghouse.receiverId is required" $ch.receiverId | quote }}
+  PAA_X12_APPLICATION_SENDER: {{ required "clearinghouse.applicationSender is required" $ch.applicationSender | quote }}
+  PAA_X12_APPLICATION_RECEIVER: {{ required "clearinghouse.applicationReceiver is required" $ch.applicationReceiver | quote }}
+  PAA_X12_USAGE: {{ $ch.usage | quote }}
+  PAA_PROVIDER_NAME: {{ required "clearinghouse.providerName is required" $ch.providerName | quote }}
+  PAA_PROVIDER_NPI: {{ required "clearinghouse.providerNpi is required" $ch.providerNpi | quote }}
+  PAA_PROVIDER_TAX_ID: {{ required "clearinghouse.providerTaxId is required" $ch.providerTaxId | quote }}
+  {{- end }}
+  {{- with .Values.notifications.webhookUrl }}
+  PAA_NOTIFICATION_WEBHOOK_URL: {{ . | quote }}
+  {{- end }}
+  {{- if $m.enabled }}
+  PAA_PROVIDERS_FILE: /app/configs/providers.yaml
+  PAA_MODEL_TOKEN_SOURCE: {{ $m.tokenSource | quote }}
+  GCP_REGION: {{ required "models.gcpRegion is required" $m.gcpRegion | quote }}
+  GCP_PROJECT_ID: {{ required "models.gcpProjectId is required" $m.gcpProjectId | quote }}
+  GEMINI_PRO_INPUT_USD_PER_MTOK: {{ required "models.geminiProInputUsdPerMtok is required" $m.geminiProInputUsdPerMtok | quote }}
+  GEMINI_PRO_OUTPUT_USD_PER_MTOK: {{ required "models.geminiProOutputUsdPerMtok is required" $m.geminiProOutputUsdPerMtok | quote }}
+  GEMINI_FLASH_INPUT_USD_PER_MTOK: {{ required "models.geminiFlashInputUsdPerMtok is required" $m.geminiFlashInputUsdPerMtok | quote }}
+  GEMINI_FLASH_OUTPUT_USD_PER_MTOK: {{ required "models.geminiFlashOutputUsdPerMtok is required" $m.geminiFlashOutputUsdPerMtok | quote }}
+  {{- end }}
+  {{- with $p.otlpEndpoint }}
+  PAA_OTLP_ENDPOINT: {{ . | quote }}
+  {{- end }}

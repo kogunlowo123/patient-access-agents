@@ -33,7 +33,7 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           test "$(uv run python -c 'import patient_access_agents; print(patient_access_agents.__version__)')" = "$version"
           grep -q "^appVersion: \"$version\"" deployments/helm/patient-access-agents/Chart.yaml
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

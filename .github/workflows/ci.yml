@@ -88,7 +88,7 @@ jobs:
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
             rendered.yaml deployments/kubernetes/namespace.yaml deployments/kubernetes/external-secrets.yaml
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.9.8
       - name: Terraform fmt and validate (aws, azure, gcp)
